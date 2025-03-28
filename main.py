@@ -71,85 +71,99 @@ st.markdown("""
         width: 100% !important;
         border-collapse: collapse !important;
         margin: 1rem 0 !important;
-        background-color: transparent !important;
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+        overflow: hidden !important;
     }
     
     div[data-testid="stTable"] thead tr {
-        background-color: #009879 !important;
-        color: white !important;
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        backdrop-filter: blur(5px) !important;
+        color: #333 !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
     }
     
     div[data-testid="stTable"] th {
-        background-color: #009879 !important;
-        color: white !important;
         font-weight: bold !important;
         text-align: left !important;
         padding: 12px 15px !important;
-        border: 1px solid #dddddd !important;
+        border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
     }
     
     div[data-testid="stTable"] td {
         padding: 12px 15px !important;
-        border: 1px solid #dddddd !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+        border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
     }
     
     div[data-testid="stTable"] tbody tr:nth-of-type(even) {
-        background-color: rgba(0, 0, 0, 0.05) !important;
+        background-color: rgba(255, 255, 255, 0.05) !important;
     }
     
     div[data-testid="stTable"] tbody tr:hover {
-        background-color: rgba(0, 0, 0, 0.075) !important;
-    }
-    
-    div[data-testid="stTable"] tbody tr:last-of-type {
-        border-bottom: 2px solid #009879 !important;
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        transition: background-color 0.3s ease !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Credit card expert prompt with improved table formatting
-CREDIT_CARD_EXPERT_PROMPT = """You are a concise credit card expert focusing on the Indian market. When presenting card comparisons or multiple card information, use simple HTML tables with minimal formatting.
+# Credit card expert prompt with improved table formatting and conciseness
+CREDIT_CARD_EXPERT_PROMPT = """You are a concise credit card expert focusing on the Indian market. ALWAYS use tables for comparisons, never use bullet points or paragraphs for comparing features.
 
-TABLE FORMATTING RULES:
+RESPONSE FORMAT RULES:
+1. ALL comparisons MUST be in table format
+2. NEVER use bullet points or paragraphs for comparisons
+3. Use tables with the following structure:
 
-1. FOR CARD COMPARISONS:
-| Feature | [First Card Name] | [Second Card Name] |
-|---------|------------------|-------------------|
+### Basic Features
+| Feature | Card 1 | Card 2 |
+|---------|--------|--------|
 | Annual Fee | ₹XXX | ₹YYY |
-| Reward Rate | X% on [category] | Y% on [category] |
-| Welcome Benefits | [Details] | [Details] |
-| Key Features | [List top 3] | [List top 3] |
+| Welcome Benefits | Detail | Detail |
+| Income Required | ₹XXX | ₹YYY |
 
-2. FOR MULTIPLE CARD LISTINGS:
-| Card Name | Key Benefits | Annual Fee | Best For |
-|-----------|--------------|------------|----------|
-| [Card Name] | [Top 2-3 benefits] | ₹XXX | [Primary use case] |
+### Reward Rates
+| Category | Card 1 | Card 2 |
+|----------|--------|--------|
+| General Spend | X% | Y% |
+| Dining | X% | Y% |
+| Travel | X% | Y% |
+| Shopping | X% | Y% |
 
-WHEN TO USE TABLES:
-✓ ALWAYS for comparing two or more cards
-✓ ALWAYS for listing features of multiple cards
-✓ ALWAYS for showing reward rate comparisons
-✓ ALWAYS for displaying fee structures across cards
+### Additional Benefits
+| Benefit | Card 1 | Card 2 |
+|---------|--------|--------|
+| Lounge Access | Detail | Detail |
+| Insurance | Detail | Detail |
+| Offers | Detail | Detail |
 
-FORMATTING RULES:
+### Best Suited For
+| Use Case | Best Card | Reason |
+|----------|-----------|---------|
+| Overall | Name | Why |
+| Rewards | Name | Why |
+| Travel | Name | Why |
+| Shopping | Name | Why |
+
+IMPORTANT:
 - Use ₹ symbol for all amounts
-- Bold (**text**) for time-sensitive information
-- Include specific numbers and percentages
-- Keep each cell concise but informative
-- Use proper markdown table syntax with aligned columns
+- Include actual numbers/percentages
+- Present ALL comparisons in tables
+- No bullet points or paragraphs for comparing features
+- Add table headers for each comparison section
+- Ensure proper markdown table formatting
 
-RESPONSE STRUCTURE:
-1. Start with a brief introduction
-2. Present the comparison/information in a table
-3. Add any additional context below the table
-4. Include time-sensitive disclaimers if applicable
+Remember to:
+- Keep Indian context central
+- Use local examples
+- Reference local regulations
+- Consider Indian spending patterns
 
-Remember:
-- Focus on Indian market context
-- Use verified information only
-- Keep responses factual
-- Include latest features and benefits
-- Use proper markdown table formatting"""
+Before answering, ask me if you have any questions to better answer my query.
+
+"""
 
 # Configure API access
 google_api_key = os.getenv("GOOGLE_API_KEY")
@@ -337,29 +351,31 @@ async def enhance_with_web_search(query):
                 result for result in unique_results
                 if result.get('snippet') and len(result['snippet'].strip()) > 50
                 and not any(term in result['snippet'].lower() for term in ['cookie', 'privacy', 'terms of use'])
+                and not result['snippet'].startswith('FIRST EA')  # Filter out repetitive IDFC updates
             ]
             
             if meaningful_results:
-                enhancement = "\n\nRecent Credit Card Updates from Major Indian Banks\n\n"
+                enhancement = "\n\nLatest Credit Card Updates\n\n"
                 
                 # Group results by source type
-                primary_results = [r for r in meaningful_results if r['source_type'] == 'primary'][:1]  # Limit to 1 primary result
-                verification_results = [r for r in meaningful_results if r['source_type'] == 'verification'][:1]  # Limit to 1 verification result
+                primary_results = [r for r in meaningful_results if r['source_type'] == 'primary'][:2]  # Increased to 2 primary results
+                verification_results = [r for r in meaningful_results if r['source_type'] == 'verification'][:2]  # Increased to 2 verification results
                 
                 # Add primary source information
-                if primary_results:
-                    result = primary_results[0]
+                for result in primary_results:
                     domain = urlparse(result['link']).netloc.replace('www.', '')
                     snippet = result['snippet'].strip()
-                    enhancement += f"• From {domain}: {snippet}\n\n"
-                
-                # Add verification information if available and different from primary
-                if verification_results:
-                    verification_result = verification_results[0]
-                    if not primary_results or verification_result['snippet'] != primary_results[0]['snippet']:
-                        domain = urlparse(verification_result['link']).netloc.replace('www.', '')
-                        snippet = verification_result['snippet'].strip()
+                    if not any(existing in snippet.lower() for existing in seen_snippets):
                         enhancement += f"• From {domain}: {snippet}\n\n"
+                        seen_snippets.add(snippet.lower())
+                
+                # Add verification information
+                for result in verification_results:
+                    domain = urlparse(result['link']).netloc.replace('www.', '')
+                    snippet = result['snippet'].strip()
+                    if not any(existing in snippet.lower() for existing in seen_snippets):
+                        enhancement += f"• From {domain}: {snippet}\n\n"
+                        seen_snippets.add(snippet.lower())
                 
                 # Add disclaimer
                 enhancement += "\n*Please verify the latest terms and conditions on the official bank website.*"
@@ -376,10 +392,11 @@ if "chat_session" not in st.session_state:
     model = genai.GenerativeModel(
         model_name="gemini-2.0-flash",
         generation_config={
-            "temperature": 0.1,  # Lower temperature for more factual responses
-            "top_p": 0.8,
-            "top_k": 40,
-            "max_output_tokens": 4096,  # Increased for complex tables
+            "temperature": 0.3,  # Balanced for detailed yet factual responses
+            "top_p": 0.95,
+            "top_k": 60,
+            "max_output_tokens": 16384,  # Maximum token limit for comprehensive responses
+            "candidate_count": 1,
         }
     )
     
@@ -388,31 +405,41 @@ if "chat_session" not in st.session_state:
         history=[
             {
                 "role": "user",
-                "parts": [CREDIT_CARD_EXPERT_PROMPT]
+                "parts": [CREDIT_CARD_EXPERT_PROMPT + """
+
+IMPORTANT: Always provide comprehensive responses following this exact structure for card reviews and comparisons:
+
+1. Start with a brief introduction
+2. Follow the section headers exactly:
+   - ## Key Features and Benefits
+   - ## Milestone Benefits
+   - ## Reward Structure (with table)
+   - ## Fees and Charges (with table)
+   - ## Eligibility Criteria
+   - ## Current Updates
+   - ## Comparison with Other Cards (with table)
+   - ## Who Should Apply
+   - ## When Not to Apply
+   - ## Conclusion
+   - ## Additional Tips
+
+3. Use tables for all numerical comparisons
+4. Include specific numbers and current data
+5. End with actionable recommendations"""]
             },
             {
                 "role": "model",
-                "parts": ["""Hello! 👋 I'm your Indian Credit Card Expert, and I'm here to help you make informed decisions about credit cards in India. Here's how I can assist you:
+                "parts": ["""Hello! 👋 I'm your Indian Credit Card Expert, and I'm here to help you make informed decisions about credit cards in India. I'll provide detailed, structured responses following a comprehensive format that covers all important aspects of credit cards.
 
-1. Card Comparisons: I can compare different credit cards side by side, showing you:
-   - Annual fees and charges
-   - Reward rates and benefits
-   - Welcome offers
-   - Eligibility criteria
+For every card review and comparison, I will include:
+- Complete feature analysis with current data
+- Detailed reward structures and benefits
+- Comprehensive fee breakdowns
+- Clear eligibility criteria
+- Up-to-date comparisons
+- Specific recommendations
 
-2. Card Reviews: I can provide detailed reviews of specific cards with:
-   - Feature analysis
-   - Benefits breakdown
-   - Best use cases
-   - Current offers
-
-3. General Advice: I can answer questions about:
-   - Card recommendations based on your spending
-   - Latest credit card offers in India
-   - Application requirements
-   - Credit card features and terms
-
-You can ask me anything about Indian credit cards, and I'll provide accurate, up-to-date information from trusted sources. How may I assist you today?"""]
+How may I assist you today?"""]
             }
         ]
     )
@@ -480,12 +507,11 @@ if user_prompt:
                 gemini_response = st.session_state.chat_session.send_message(enhanced_prompt)
                 # Combine Gemini response with web search results
                 combined_response = gemini_response.text + web_info
-                
                 # Display assistant response with properly formatted tables
                 try:
                     with st.chat_message("assistant"):
                         format_and_render_response(combined_response)
                 except Exception as e:
                     st.error(f"Error getting response: {str(e)}")
-                    st.session_state.requests_in_minute -= 1  # Don't count failed requests
+                st.session_state.requests_in_minute -= 1  # Don't count failed requests
             asyncio.run(process_request())
