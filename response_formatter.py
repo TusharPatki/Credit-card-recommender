@@ -83,38 +83,7 @@ def convert_html_to_markdown(html):
     # Clean up any remaining HTML tags
     text = re.sub(r'<[^>]+>', '', text)
     
-    # Fix spacing issues
-    text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)  # Remove extra blank lines
-    text = re.sub(r'[ \t]+', ' ', text)  # Remove extra spaces and tabs
-    
-    # Process text line by line
-    lines = text.split('\n')
-    processed_lines = []
-    for line in lines:
-        line = line.strip()
-        if line:
-            # Fix first word spacing without affecting markdown
-            if not line.startswith(('#', '-', '*', '1.', '>')):
-                line = re.sub(r'^([A-Za-z]+)\s+', r'\1 ', line)
-            processed_lines.append(line)
-    
-    text = '\n'.join(processed_lines)
-    
-    # Clean up markdown formatting
-    text = re.sub(r'\*\*\s+(\w)', r'**\1', text)  # Remove space after opening bold
-    text = re.sub(r'(\w)\s+\*\*', r'\1**', text)  # Remove space before closing bold
-    text = re.sub(r'\*\s+(\w)', r'*\1', text)     # Remove space after opening italic
-    text = re.sub(r'(\w)\s+\*', r'\1*', text)     # Remove space before closing italic
-    
-    # Ensure proper spacing around headers and lists
-    text = re.sub(r'(^|\n)(#{1,6})\s*([^\n]+)', r'\1\2 \3', text)  # Fix header spacing
-    text = re.sub(r'(^|\n)-\s*([^\n]+)', r'\1- \2', text)  # Fix list item spacing
-    
-    # Final cleanup
-    text = text.strip()
-    text = re.sub(r'\n{3,}', '\n\n', text)  # Maximum two consecutive newlines
-    
-    return text
+    return text.strip()
 
 def format_table(table_html):
     """Convert HTML table to DataFrame with enhanced formatting"""
@@ -155,125 +124,6 @@ def format_table(table_html):
         print(f"Error formatting table: {e}")
         return None
 
-def format_text_section(text):
-    """Format text sections with proper styling and structure"""
-    if not text:
-        return ""
-    
-    # First clean up any malformed HTML
-    soup = BeautifulSoup(text, 'html.parser')
-    
-    # Remove unwanted elements
-    for element in soup.find_all(['script', 'style', 'meta']):
-        element.decompose()
-    
-    # Handle lists first
-    for ul in soup.find_all('ul'):
-        items = []
-        for li in ul.find_all('li'):
-            items.append(f"- {li.get_text().strip()}")
-        new_tag = soup.new_string('\n' + '\n'.join(items) + '\n\n')
-        ul.replace_with(new_tag)
-    
-    for ol in soup.find_all('ol'):
-        items = []
-        for i, li in enumerate(ol.find_all('li'), 1):
-            items.append(f"{i}. {li.get_text().strip()}")
-        new_tag = soup.new_string('\n' + '\n'.join(items) + '\n\n')
-        ol.replace_with(new_tag)
-    
-    # Convert HTML to string
-    text = str(soup)
-    
-    # Replace HTML elements with markdown
-    replacements = [
-        # Headers
-        (r'<h1[^>]*>(.*?)</h1>', r'# \1\n\n'),
-        (r'<h2[^>]*>(.*?)</h2>', r'## \1\n\n'),
-        (r'<h3[^>]*>(.*?)</h3>', r'### \1\n\n'),
-        (r'<h4[^>]*>(.*?)</h4>', r'#### \1\n\n'),
-        (r'<h5[^>]*>(.*?)</h5>', r'##### \1\n\n'),
-        (r'<h6[^>]*>(.*?)</h6>', r'###### \1\n\n'),
-        
-        # Text formatting
-        (r'<(?:b|strong)[^>]*>(.*?)</(?:b|strong)>', r'**\1**'),
-        (r'<(?:i|em)[^>]*>(.*?)</(?:i|em)>', r'*\1*'),
-        (r'<code[^>]*>(.*?)</code>', r'`\1`'),
-        
-        # Links and images
-        (r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r'[\2](\1)'),
-        (r'<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*/>', r'![\2](\1)'),
-        
-        # Line breaks and paragraphs
-        (r'<br[^>]*/>', '\n'),
-        (r'<br>', '\n'),
-        (r'</br>', ''),
-        (r'<p[^>]*>(.*?)</p>', r'\1\n\n'),
-        
-        # Divs and spans
-        (r'<div[^>]*>(.*?)</div>', r'\1\n'),
-        (r'<span[^>]*>(.*?)</span>', r'\1'),
-        
-        # HTML entities
-        (r'&nbsp;', ' '),
-        (r'&amp;', '&'),
-        (r'&lt;', '<'),
-        (r'&gt;', '>'),
-        (r'&quot;', '"'),
-        (r'&apos;', "'"),
-        (r'&#8377;', '₹'),
-        (r'&#x20b9;', '₹'),
-        (r'&mdash;', '—'),
-        (r'&ndash;', '–'),
-        (r'&bull;', '•'),
-    ]
-    
-    # Apply replacements
-    for pattern, replacement in replacements:
-        text = re.sub(pattern, replacement, text, flags=re.DOTALL | re.IGNORECASE)
-    
-    # Clean up any remaining HTML tags
-    text = re.sub(r'<[^>]+>', '', text)
-    
-    # Split into sections
-    sections = []
-    current_section = []
-    
-    for line in text.split('\n'):
-        line = line.strip()
-        if not line:
-            if current_section:
-                sections.append('\n'.join(current_section))
-                current_section = []
-        else:
-            # Handle first word spacing without affecting markdown
-            if not any(line.startswith(prefix) for prefix in ['#', '-', '*', '1.', '>', '|']):
-                line = re.sub(r'^([A-Za-z]+)\s+', r'\1 ', line)
-            current_section.append(line)
-    
-    if current_section:
-        sections.append('\n'.join(current_section))
-    
-    # Process each section
-    formatted_sections = []
-    for section in sections:
-        # Clean up markdown formatting
-        section = re.sub(r'\*\*\s+(\w)', r'**\1', section)  # Fix bold
-        section = re.sub(r'(\w)\s+\*\*', r'\1**', section)
-        section = re.sub(r'\*\s+(\w)', r'*\1', section)     # Fix italic
-        section = re.sub(r'(\w)\s+\*', r'\1*', section)
-        
-        # Fix header spacing
-        section = re.sub(r'^(#{1,6})\s*(\w)', r'\1 \2', section)
-        
-        # Fix list spacing
-        section = re.sub(r'^-\s*(\w)', r'- \1', section)
-        section = re.sub(r'^\d+\.\s*(\w)', r'\1. \1', section)
-        
-        formatted_sections.append(section)
-    
-    return '\n\n'.join(formatted_sections)
-
 def format_and_render_response(text):
     """Format and render the response with enhanced handling"""
     if not text:
@@ -291,57 +141,51 @@ def format_and_render_response(text):
             # Handle table
             df = format_table(part)
             if df is not None:
-                # Apply styling
-                styled_df = df.style.set_properties(**{
-                    'text-align': 'left',
-                    'white-space': 'pre-wrap',
-                    'overflow-wrap': 'break-word',
-                    'max-width': '0',
-                })
-                styled_df = styled_df.set_table_styles([
-                    {'selector': 'th', 'props': [
-                        ('background-color', '#009879'),
-                        ('color', 'white'),
-                        ('font-weight', 'bold'),
-                        ('text-align', 'left'),
-                        ('padding', '12px 15px'),
-                        ('white-space', 'pre-wrap'),
-                        ('overflow-wrap', 'break-word'),
-                    ]},
-                    {'selector': 'td', 'props': [
-                        ('padding', '12px 15px'),
-                        ('white-space', 'pre-wrap'),
-                        ('overflow-wrap', 'break-word'),
-                    ]},
-                    {'selector': 'tr:nth-of-type(even)', 'props': [
-                        ('background-color', 'rgba(0, 152, 121, 0.05)')
-                    ]},
-                    {'selector': 'tr:hover', 'props': [
-                        ('background-color', 'rgba(0, 152, 121, 0.1)')
-                    ]}
-                ])
+                # Apply custom styling with dark theme
+                st.markdown("""
+                <style>
+                .stDataFrame {
+                    background-color: #262730 !important;
+                    color: #FAFAFA !important;
+                }
+                .stDataFrame th {
+                    background-color: #1E1E1E !important;
+                    color: #FAFAFA !important;
+                    font-weight: bold !important;
+                }
+                .stDataFrame tr:nth-child(even) {
+                    background-color: #262730 !important;
+                }
+                .stDataFrame tr:nth-child(odd) {
+                    background-color: #1E1E1E !important;
+                }
+                .stDataFrame tr:hover {
+                    background-color: #0E1117 !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
                 
                 st.dataframe(
-                    styled_df,
-                    hide_index=True,
+                    df.style.set_properties(**{
+                        'color': '#FAFAFA',
+                        'background-color': '#262730',
+                    }),
+                    hide_index=True, 
                     use_container_width=True
                 )
         else:
-            # Format and render text content
-            formatted_text = format_text_section(part)
-            if formatted_text:
-                sections = formatted_text.split('\n\n')
-                for section in sections:
-                    if section.strip():
-                        if re.match(r'^#{1,6}\s', section):
-                            # Render headers with special styling
-                            header_level = len(re.match(r'^(#+)\s', section).group(1))
-                            margin_top = '2em' if header_level == 1 else '1.5em' if header_level == 2 else '1.2em'
-                            margin_bottom = '0.8em' if header_level == 1 else '0.6em' if header_level == 2 else '0.4em'
-                            st.markdown(f'<div style="margin-top: {margin_top}; margin-bottom: {margin_bottom}; font-weight: bold;">{section}</div>', unsafe_allow_html=True)
-                        elif section.startswith('- ') or re.match(r'^\d+\.', section):
-                            # Render lists with proper spacing
-                            st.markdown(f'<div style="margin-left: 1em; margin-bottom: 1em;">{section}</div>', unsafe_allow_html=True)
-                        else:
-                            # Render regular paragraphs
-                            st.markdown(f'<div style="margin-bottom: 1em;">{section}</div>', unsafe_allow_html=True) 
+            # Clean up and convert HTML to plain text
+            cleaned_text = convert_html_to_markdown(part)
+            
+            # Custom rendering with dark theme
+            st.markdown(f"""
+            <div style="
+                background-color: #262730; 
+                color: #FAFAFA; 
+                padding: 15px; 
+                border-radius: 5px; 
+                margin-bottom: 10px;
+            ">
+            {cleaned_text}
+            </div>
+            """, unsafe_allow_html=True)
